@@ -1,0 +1,3 @@
+[submodule "xatlas"]
+	path = xatlas
+	url = https://github.com/kzhsw/xatlas
