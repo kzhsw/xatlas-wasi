@@ -1,0 +1,34 @@
+{
+  "name": "xatlas-wasi",
+  "version": "0.0.1",
+  "description": "xatlas build with wasi-sdk",
+  "module": "esm/index.js",
+  "main": "cjs/index.js",
+  "scripts": {
+    "build": "tsc --project tsconfig.cjs.json && tsc --project tsconfig.esm.json"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kzhsw/xatlas-wasi.git"
+  },
+  "keywords": [
+    "wasi",
+    "wasm",
+    "xatlas"
+  ],
+  "files": [
+    "index.ts",
+    "*.wasm",
+    "cjs/",
+    "esm/"
+  ],
+  "author": "kzhsw",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/kzhsw/xatlas-wasi/issues"
+  },
+  "homepage": "https://github.com/kzhsw/xatlas-wasi#readme",
+  "devDependencies": {
+    "typescript": "^5.5.3"
+  }
+}
