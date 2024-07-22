@@ -1,0 +1,47 @@
+# This workflow will run tests using node and then publish a package to GitHub Packages when a release is created
+# For more information see: https://docs.github.com/en/actions/publishing-packages/publishing-nodejs-packages
+
+name: Node.js Package
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  publish-npm:
+    env:
+      WASI_SDK_VERSION: 22
+      BINARYEN_VERSION: 118
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          
+      - name: Downloading wasi-sdk
+        run: |
+          cd ${{github.workspace}}
+          wget --no-verbose https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VERSION}/wasi-sdk-${WASI_SDK_VERSION}.0-linux.tar.gz
+          tar xf wasi-sdk-${WASI_SDK_VERSION}.0-linux.tar.gz
+
+      - name: Downloading binaryen
+        run: |
+          cd ${{github.workspace}}
+          wget --no-verbose https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-x86_64-linux.tar.gz
+          tar xf binaryen-version_${BINARYEN_VERSION}-x86_64-linux.tar.gz
+
+      - name: make
+        run: |
+          cd ${{github.workspace}}
+          make -j$(nproc) WASI_SDK_PATH="${{github.workspace}}/wasi-sdk-${WASI_SDK_VERSION}.0/bin" BINARYEN_PATH="${{github.workspace}}/binaryen-version_${BINARYEN_VERSION}/bin"
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          registry-url: https://registry.npmjs.org/
+      - run: npm ci
+      - run: npm run build
+      - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.npm_token}}
