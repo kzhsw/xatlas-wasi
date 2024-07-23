@@ -2,14 +2,27 @@
 
 xatlas build with wasi-sdk
 
+Note: This is a raw build of xatlas C api, and contains a typescript binding for it. There is currently no plan to impl a high-level api.
+
+## Compatibility
+
+[Bulk memory operations](https://github.com/WebAssembly/bulk-memory-operations/blob/master/proposals/bulk-memory-operations/Overview.md) is required by wasi-sdk stdlib, see [roadmap](https://webassembly.org/features/) for detailed compatibility table.
+
+[Non-trapping float-to-int conversions](https://github.com/WebAssembly/spec/blob/master/proposals/nontrapping-float-to-int-conversion/Overview.md) is also used, but it can be fully covered by runtimes supporting [Bulk memory operations](https://github.com/WebAssembly/bulk-memory-operations/blob/master/proposals/bulk-memory-operations/Overview.md).
+
+## Wasm files
+
+* `xatlas.wasm`: Optimized release build
+* `xatlas-dbg.wasm`: Debugging build with debug log
+
 ## Example
 
 ```typescript
 import { WasmExports, WasmContext, xatlasMeshDecl, xatlasAtlas, xatlasMesh } from "xatlas-wasi";
 
-
 const wasm = await WebAssembly.instantiateStreaming(fetch('./xatlas-dbg.wasm'), {
     env: {
+        // you will only need this for xatlas-dbg.wasm
         js_log(ptr: number, len: number) {
             if (len < 0) {
                 console.error('js_log: error printing log', len);
@@ -18,6 +31,7 @@ const wasm = await WebAssembly.instantiateStreaming(fetch('./xatlas-dbg.wasm'), 
             var buf = new Uint8Array((wasm.instance.exports as unknown as WasmExports).memory.buffer);
             console.log(new TextDecoder().decode(buf.subarray(ptr, ptr + len)));
         },
+        // needed for all builds
         js_progress(type: number, progress: number, _: never) {
             console.log('js_progress', type, progress);
             return 1;
@@ -37,6 +51,7 @@ const wasm = await WebAssembly.instantiateStreaming(fetch('./xatlas-dbg.wasm'), 
         }
     }
 });
+
 const exports = wasm.instance.exports as unknown as WasmExports;
 const ctx = new WasmContext(exports);
 
