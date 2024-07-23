@@ -29,6 +29,8 @@
   },
   "homepage": "https://github.com/kzhsw/xatlas-wasi#readme",
   "devDependencies": {
+    "@gltf-transform/core": "^4.0.8",
+    "@gltf-transform/functions": "^4.0.8",
     "typescript": "^5.5.3"
   }
 }

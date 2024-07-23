@@ -4,7 +4,8 @@
         "target": "ES6",
         "declaration": true,
         "sourceMap": true,
-        "outDir": "./cjs"
+        "outDir": "./cjs",
+        "lib": ["ES2015", "dom"]
     },
     "include": [
         "index.ts"
