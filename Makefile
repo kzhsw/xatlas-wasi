@@ -27,11 +27,11 @@ xatlas-dbg.wasm: $(SRC_FILES)
 xatlas.wasm: $(SRC_FILES)
 	$(WASI_SDK_PATH)/clang $(C_FLAGS) -DNDEBUG -O3 -Ofast -Os $(SRC_FILES) $(LD_FLAGS) \
 	-Wl,--strip-all,-O3,--lto-O3,--lto-CGO3 \
-	-o xatlas.wasm
+	-o xatlas-rel.wasm
 
 xatlas-opt.wasm: xatlas.wasm
 	$(BINARYEN_PATH)/wasm-opt -O3 -O4 -s --directize --vacuum --zero-filled-memory --enable-nontrapping-float-to-int --enable-bulk-memory --strip-debug --strip-producers --strip-dwarf \
-	-o xatlas-opt.wasm xatlas.wasm
+	-o xatlas.wasm xatlas-rel.wasm
 
 clean:
 	rm -f xatlas-dbg.wasm xatlas.wasm xatlas-opt.wasm
