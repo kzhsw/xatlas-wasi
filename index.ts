@@ -56,19 +56,19 @@ export const enum xatlasAddMeshError {
      */
     XATLAS_ADD_MESH_ERROR_SUCCESS = 0,
     /**
-     * Generic error.
+     * Unspecified error.
      */
     XATLAS_ADD_MESH_ERROR_ERROR = 1,
     /**
-     * Index out of range error.
+     * An index is >= MeshDecl vertexCount.
      */
     XATLAS_ADD_MESH_ERROR_INDEXOUTOFRANGE = 2,
     /**
-     * Invalid face vertex count error.
+     * Must be >= 3.
      */
     XATLAS_ADD_MESH_ERROR_INVALIDFACEVERTEXCOUNT = 3,
     /**
-     * Invalid index count error.
+     * Not evenly divisible by 3 - expecting triangles.
      */
     XATLAS_ADD_MESH_ERROR_INVALIDINDEXCOUNT = 4,
 }
@@ -104,7 +104,7 @@ export interface WasmExports {
     memory: WebAssembly.Memory;
 
     /**
-     * Creates an atlas.
+     * Create an empty atlas.
      * @returns Pointer to the created xatlasAtlas.
      */
     xatlasCreate(): ptr<xatlasAtlas>;
@@ -116,7 +116,8 @@ export interface WasmExports {
     xatlasDestroy(atlas: ptr<xatlasAtlas>): void;
 
     /**
-     * Adds a mesh to the atlas.
+     * Add a mesh to the atlas.
+     * MeshDecl data is copied, so it can be freed after AddMesh returns.
      * @param atlas - Pointer to the xatlasAtlas.
      * @param meshDecl - Pointer to the xatlasMeshDecl.
      * @param meshCountHint - Hint for the number of meshes.
@@ -124,7 +125,10 @@ export interface WasmExports {
      */
     xatlasAddMesh(atlas: ptr<xatlasAtlas>, meshDecl: ptr<xatlasMeshDecl>, meshCountHint: number): xatlasAddMeshError;
 
-    // Only for debug build
+    /**
+     * Wait for AddMesh async processing to finish. ComputeCharts / Generate call this internally.
+     * Only for debug build since there is no threads
+     */
     xatlasAddMeshJoin?(atlas: ptr<xatlasAtlas>): void;
 
     /**
@@ -143,24 +147,25 @@ export interface WasmExports {
     xatlasComputeCharts(atlas: ptr<xatlasAtlas>, chartOptions: ptr<xatlasChartOptions>): void;
 
     /**
-     * Packs the charts in the given atlas.
+     * Call after ComputeCharts. Can be called multiple times to re-pack charts with different options.
      * @param atlas - Pointer to the xatlasAtlas.
      * @param packOptions - Pointer to the xatlasPackOptions.
      */
     xatlasPackCharts(atlas: ptr<xatlasAtlas>, packOptions: ptr<xatlasPackOptions>): void;
 
     /**
-     * Generates the atlas.
+     * Equivalent to calling ComputeCharts and PackCharts in sequence.
+     * Can be called multiple times to regenerate with different options.
      * @param atlas - Pointer to the xatlasAtlas.
      * @param chartOptions - Pointer to the xatlasChartOptions.
      * @param packOptions - Pointer to the xatlasPackOptions.
      */
     xatlasGenerate(atlas: ptr<xatlasAtlas>, chartOptions: ptr<xatlasChartOptions>, packOptions: ptr<xatlasPackOptions>): void;
 
-    // Only for debug build
+    // Helper functions for error messages. Only for debug build
     xatlasAddMeshErrorString?(error: xatlasAddMeshError): ptr<string>;
 
-    // Only for debug build
+    // Helper functions for error messages. Only for debug build
     xatlasProgressCategoryString?(category: xatlasProgressCategory): ptr<string>;
 
     /**
@@ -337,6 +342,9 @@ export class WasmContext {
     }
 }
 
+/**
+ * A group of connected faces, belonging to a single atlas.
+ */
 export class xatlasChart {
     /**
      * Size of the `xatlasChart` structure in bytes.
@@ -349,7 +357,7 @@ export class xatlasChart {
     declare faceArray: ptr<number>;
 
     /**
-     * Index of the atlas this chart belongs to.
+     * Sub-atlas index.
      */
     declare atlasIndex: number;
 
@@ -399,6 +407,9 @@ export class xatlasChart {
     }
 }
 
+/**
+ * Output vertex.
+ */
 export class xatlasVertex {
     /**
      * Size of the `xatlasVertex` structure in bytes.
@@ -406,22 +417,22 @@ export class xatlasVertex {
     static readonly SIZE = 20;
 
     /**
-     * Index of the atlas this vertex belongs to.
+     * Sub-atlas index. -1 if the vertex doesn't exist in any atlas.
      */
     declare atlasIndex: number;
 
     /**
-     * Index of the chart this vertex belongs to.
+     * -1 if the vertex doesn't exist in any chart.
      */
     declare chartIndex: number;
 
     /**
-     * UV coordinates of the vertex.
+     * Not normalized - values are in Atlas width and height range.
      */
     declare uv: [number, number];
 
     /**
-     * Cross-reference index for the vertex.
+     * Index of input vertex from which this output vertex originated.
      */
     declare xref: number;
 
@@ -457,6 +468,9 @@ export class xatlasVertex {
     }
 }
 
+/**
+ * Output mesh.
+ */
 export class xatlasMesh {
     /**
      * Size of the `xatlasMesh` structure in bytes.
@@ -538,42 +552,44 @@ export class xatlasAtlas {
     declare image: ptr<number>;
 
     /**
-     * Pointer to an array of `xatlasMesh` structures.
+     * The output meshes, corresponding to each AddMesh call.
      */
     declare meshes: ptr<xatlasMesh>;
 
     /**
-     * Pointer to an array representing the utilization.
+     * Normalized atlas texel utilization array.
+     * E.g. a value of 0.8 means 20% empty space. atlasCount in length.
      */
     declare utilization: ptr<number>;
 
     /**
-     * Width of the atlas.
+     * Atlas width in texels.
      */
     declare width: number;
 
     /**
-     * Height of the atlas.
+     * Atlas height in texels.
      */
     declare height: number;
 
     /**
-     * Number of atlases.
+     * Number of sub-atlases. Equal to 0 unless PackOptions resolution is changed from default (0).
      */
     declare atlasCount: number;
 
     /**
-     * Number of charts.
+     * Total number of charts in all meshes.
      */
     declare chartCount: number;
 
     /**
-     * Number of meshes.
+     * Number of output meshes. Equal to the number of times AddMesh was called.
      */
     declare meshCount: number;
 
     /**
-     * Texels per unit.
+     * Equal to PackOptions texelsPerUnit if texelsPerUnit > 0,
+     * otherwise an estimated value to match PackOptions resolution.
      */
     declare texelsPerUnit: number;
 
@@ -631,31 +647,39 @@ export class xatlasMeshDecl {
 
     /**
      * Pointer to vertex normal data.
+     * optional
      */
     declare vertexNormalData: ptr<any>;
 
     /**
      * Pointer to vertex UV data.
+     * optional. The input UVs are provided as a hint to the chart generator.
      */
     declare vertexUvData: ptr<any>;
 
     /**
      * Pointer to index data.
+     * optional
      */
     declare indexData: ptr<any>;
 
     /**
-     * Pointer to face ignore data.
+     * Optional. Must be faceCount in length.
+     * Don't atlas faces set to true.
+     * Ignored faces still exist in the output meshes,
+     * Vertex uv is set to (0, 0) and Vertex atlasIndex to -1.
      */
     declare faceIgnoreData: ptr<bool>;
 
     /**
-     * Pointer to face material data.
+     * Optional. Must be faceCount in length.
+     * Only faces with the same material will be assigned to the same chart.
      */
     declare faceMaterialData: ptr<number>;
 
     /**
-     * Pointer to face vertex count data.
+     * Optional. Must be faceCount in length.
+     * Polygon / n-gon support. Faces are assumed to be triangles if this is null.
      */
     declare faceVertexCount: ptr<number>;
 
@@ -671,11 +695,13 @@ export class xatlasMeshDecl {
 
     /**
      * Stride of vertex normal data.
+     * optional
      */
     declare vertexNormalStride: number;
 
     /**
      * Stride of vertex UV data.
+     * optional
      */
     declare vertexUvStride: number;
 
@@ -686,11 +712,13 @@ export class xatlasMeshDecl {
 
     /**
      * Offset of indices.
+     * optional. Add this offset to all indices.
      */
     declare indexOffset: number;
 
     /**
      * Number of faces.
+     * Optional if faceVertexCount is null. Otherwise assumed to be indexCount / 3.
      */
     declare faceCount: number;
 
@@ -700,7 +728,7 @@ export class xatlasMeshDecl {
     declare indexFormat: xatlasIndexFormat;
 
     /**
-     * Epsilon value for calculations.
+     * Vertex positions within epsilon distance of each other are considered colocal.
      */
     declare epsilon: number;
 
@@ -772,11 +800,13 @@ export class xatlasUvMeshDecl {
 
     /**
      * Pointer to index data.
+     * optional
      */
     declare indexData: ptr<any>;
 
     /**
-     * Pointer to face material data.
+     * Optional. Overlapping UVs should be assigned a different material.
+     * Must be indexCount / 3 in length.
      */
     declare faceMaterialData: ptr<number>;
 
@@ -796,7 +826,7 @@ export class xatlasUvMeshDecl {
     declare indexCount: number;
 
     /**
-     * Offset of indices.
+     * optional. Add this offset to all indices.
      */
     declare indexOffset: number;
 
@@ -855,17 +885,18 @@ export class xatlasChartOptions {
     declare paramFunc: ptr<any>;
 
     /**
-     * Maximum chart area.
+     * Don't grow charts to be larger than this. 0 means no limit.
      */
     declare maxChartArea: number;
 
     /**
-     * Maximum boundary length.
+     * Don't grow charts to have a longer boundary than this. 0 means no limit.
      */
     declare maxBoundaryLength: number;
 
     /**
-     * Weight for normal deviation.
+     * Weights determine chart growth. Higher weights mean higher cost for that metric.
+     * Angle between face and average chart normal.
      */
     declare normalDeviationWeight: number;
 
@@ -880,7 +911,7 @@ export class xatlasChartOptions {
     declare straightnessWeight: number;
 
     /**
-     * Weight for normal seams.
+     * If > 1000, normal seams are fully respected.
      */
     declare normalSeamWeight: number;
 
@@ -890,22 +921,24 @@ export class xatlasChartOptions {
     declare textureSeamWeight: number;
 
     /**
-     * Maximum cost.
+     * If total of all metrics * weights > maxCost, don't grow chart.
+     * Lower values result in more charts.
      */
     declare maxCost: number;
 
     /**
-     * Maximum number of iterations.
+     * Number of iterations of the chart growing and seeding phases.
+     * Higher values result in better charts.
      */
     declare maxIterations: number;
 
     /**
-     * Flag to use input mesh UVs.
+     * Use MeshDecl::vertexUvData for charts.
      */
     declare useInputMeshUvs: bool;
 
     /**
-     * Flag to fix winding.
+     * Enforce consistent texture coordinate winding.
      */
     declare fixWinding: bool;
 
@@ -965,52 +998,58 @@ export class xatlasPackOptions {
     static readonly SIZE = 24;
 
     /**
-     * Maximum chart size.
+     * Charts larger than this will be scaled down. 0 means no limit.
      */
     declare maxChartSize: number;
 
     /**
-     * Padding value.
+     * Number of pixels to pad charts with.
      */
     declare padding: number;
 
     /**
-     * Texels per unit.
+     * Unit to texel scale.
+     * e.g. a 1x1 quad with texelsPerUnit of 32 will take up approximately 32x32 texels in the atlas.
+     * If 0, an estimated value will be calculated to approximately match the given resolution.
+     * If resolution is also 0, the estimated value will approximately match a 1024x1024 atlas.
      */
     declare texelsPerUnit: number;
 
     /**
-     * Resolution value.
+     * If 0, generate a single atlas with texelsPerUnit determining the final resolution.
+     * If not 0, and texelsPerUnit is not 0, generate one or more atlases with that exact resolution.
+     * If not 0, and texelsPerUnit is 0, texelsPerUnit is estimated to approximately match the resolution.
      */
     declare resolution: number;
 
     /**
-     * Flag for bilinear filtering.
+     * Leave space around charts for texels that would be sampled by bilinear filtering.
      */
     declare bilinear: bool;
 
     /**
-     * Flag for block alignment.
+     * Align charts to 4x4 blocks.
+     * Also improves packing speed, since there are fewer possible chart locations to consider.
      */
     declare blockAlign: bool;
 
     /**
-     * Flag for brute force.
+     * Slower, but gives the best result. If false, use random chart placement.
      */
     declare bruteForce: bool;
 
     /**
-     * Flag to create an image.
+     * Create Atlas::image
      */
     declare createImage: bool;
 
     /**
-     * Flag to rotate charts to axis.
+     * Rotate charts to the axis of their convex hull.
      */
     declare rotateChartsToAxis: bool;
 
     /**
-     * Flag to rotate charts.
+     * Rotate charts to improve packing.
      */
     declare rotateCharts: bool;
 
