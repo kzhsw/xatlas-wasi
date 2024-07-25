@@ -1,6 +1,6 @@
 {
   "name": "xatlas-wasi",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "xatlas build with wasi-sdk",
   "module": "esm/index.js",
   "main": "cjs/index.js",
@@ -29,8 +29,6 @@
   },
   "homepage": "https://github.com/kzhsw/xatlas-wasi#readme",
   "devDependencies": {
-    "@gltf-transform/core": "^4.0.8",
-    "@gltf-transform/functions": "^4.0.8",
     "typescript": "^5.5.3"
   }
 }
