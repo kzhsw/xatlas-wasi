@@ -2,7 +2,7 @@
 
 xatlas build with wasi-sdk
 
-Note: This is a raw build of xatlas C api, and contains a typescript binding for it. There is currently no plan to impl a high-level api.
+Note: This is a raw build of xatlas C api, and contains a typescript binding for it. The typescript binding is not required, you can skip it and the build the [underlying structs](./layout.md) manually for maximum performance. There is currently no plan to impl a high-level api.
 
 ## Compatibility
 
